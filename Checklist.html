@@ -158,7 +158,7 @@ textarea { resize: vertical; min-height: 90px; }
     </div>
   </div>
 
-  <!-- CHECKLIST (dinamis dari sheet Template) -->
+  <!-- CHECKLIST PERALATAN -->
   <div class="card">
     <div class="card-title">Checklist Peralatan</div>
     <div id="checklistContainer">
@@ -185,7 +185,7 @@ textarea { resize: vertical; min-height: 90px; }
 
 </div>
 
-<!-- MODAL KONFIRMASI SUBMIT -->
+<!-- MODAL KONFIRMASI -->
 <div class="modal-overlay" id="confirmModal">
   <div class="modal-box">
     <div class="modal-title">Konfirmasi Pengiriman</div>
@@ -198,8 +198,7 @@ textarea { resize: vertical; min-height: 90px; }
 </div>
 
 <script>
-
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxCZgMuqGnLke4f0aRgLbbIH63IHJCoUZMvGDgCJa3M83YpmiYL6m5vUSjF7lBy2O_3JQ/exec";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwAIdRP0WQJZvZoPjRd4qeL_SKyy5qrEYQ4ih899XyYMgcBMJ4SxV3oS5_iI1QSOJ5Ylw/exec";
 const API_TOKEN = "UgP0irtQFWGQuAhmkXpYOqUK1l2yhU9rmd9P8VbG1LQy0G8d8GsEPmt4I3X5peWR";
 
 let templateItems = [];
@@ -270,7 +269,6 @@ async function sendToAppsScript(payload) {
       body: formBody
     });
   } catch (networkErr) {
-    // fetch() gagal total (offline, DNS, dsb) -> ini benar-benar masalah koneksi
     throw networkErr;
   }
 
@@ -286,7 +284,7 @@ async function sendToAppsScript(payload) {
 
   if (!result.success) {
     const err = new Error(result.error || "Gagal dari server.");
-    err.isServerError = true; // request sampai ke server, tapi ditolak/gagal proses (bukan masalah koneksi)
+    err.isServerError = true;
     throw err;
   }
 
@@ -323,9 +321,7 @@ async function trySyncPending(showAlert) {
   let berhasil = 0, gagal = 0;
 
   try {
-    
     const itemsToSend = await getAllPending();
-
     for (const item of itemsToSend) {
       try {
         await sendToAppsScript(item.payload);
@@ -424,18 +420,53 @@ function renderGarduDropdown(garduList) {
 }
 
 function renderCheckItemHtml(item, i) {
+  const opsiUraian = item.namaItem.includes("/") 
+    ? item.namaItem.split("/").map(s => s.trim()).filter(Boolean)
+    : [];
+
+  const butuhJumlah = item.satuan && item.satuan.trim() !== "" && item.satuan.trim() !== "-";
+
   return `
     <div class="check-item" data-index="${i}">
-      <div class="check-name">${i + 1}. ${item.namaItem}</div>
-      <div class="check-satuan">Satuan Unit: <strong>${item.satuan || "-"}</strong></div>
+      <!-- Header Uraian -->
+      <div style="margin-bottom: 10px;">
+        ${opsiUraian.length > 0 ? `
+          <label class="form-label" style="font-weight: 700;">${i + 1}. Pilih Uraian Alat:</label>
+          <select class="uraian-select" onchange="toggleCustomUraian(this, ${i})">
+            ${opsiUraian.map(opt => `<option value="${escapeHtml(opt)}">${escapeHtml(opt)}</option>`).join("")}
+            <option value="__TAMBAH__">+ Tambah / Tipe Lain...</option>
+          </select>
+          <input type="text" class="uraian-custom-input" placeholder="Ketik jenis uraian baru..." style="display: none; margin-top: 6px;">
+        ` : `
+          <div class="check-name">${i + 1}.${escapeHtml(item.namaItem)}</div>
+        `}
+        ${butuhJumlah ? `
+          <div class="check-satuan" style="margin-top: 4px;">Satuan Unit: <strong>${escapeHtml(item.satuan)}</strong></div>
+        ` : ''}
+      </div>
 
+      <!-- Baris Input Spesifikasi Alat -->
       <div class="check-row" style="flex-wrap: wrap;">
+        ${item.perluMerek ? `
+          <div class="form-group" style="flex: 1; min-width: 130px;">
+            <label class="form-label">Merek</label>
+            <input type="text" class="merek-input" placeholder="Merek (mis. Trafindo)">
+          </div>
+        ` : ''}
+
+        ${item.perluNomor ? `
+          <div class="form-group" style="flex: 1; min-width: 130px;">
+            <label class="form-label">Nomor Seri / No.</label>
+            <input type="text" class="nomor-input" placeholder="Nomor unit / seri">
+          </div>
+        ` : ''}
+
         ${item.perluUkuran ? `
-          <div class="form-group" style="flex: 1; min-width: 140px;">
+          <div class="form-group" style="flex: 1; min-width: 130px;">
             <label class="form-label">Ukuran / Rating</label>
             <div style="display: flex; align-items: center; gap: 6px;">
               <input type="number" class="ukuran-input" step="any" placeholder="Nilai">
-              <span style="font-size: 13px; font-weight: 600; color: #374151; white-space: nowrap;">${item.satuanUkuran || ''}</span>
+              <span style="font-size: 12px; font-weight: 600; color: #374151;">${escapeHtml(item.satuanUkuran || '')}</span>
             </div>
           </div>
         ` : ''}
@@ -443,17 +474,27 @@ function renderCheckItemHtml(item, i) {
         ${item.perluJenis ? `
           <div class="form-group" style="flex: 1; min-width: 140px;">
             <label class="form-label">Jenis</label>
-            <input type="text" class="jenis-input" placeholder="Misal: Polimer / Keramik">
+            ${(item.opsiJenis && item.opsiJenis.length > 0) ? `
+              <select class="jenis-input">
+                <option value="">-- Pilih Jenis --</option>
+                ${item.opsiJenis.map(j => `<option value="${escapeHtml(j)}">${escapeHtml(j)}</option>`).join("")}
+              </select>
+            ` : `
+              <input type="text" class="jenis-input" placeholder="Jenis">
+            `}
           </div>
         ` : ''}
 
-        <div class="form-group" style="flex: 0.8; min-width: 100px;">
-          <label class="form-label">Jumlah (${item.satuan || 'Unit'})</label>
-          <input type="number" class="jumlah-input" min="0" step="1" placeholder="0">
-        </div>
+        ${butuhJumlah ? `
+          <div class="form-group" style="flex: 0.7; min-width: 90px;">
+            <label class="form-label">Jumlah (${escapeHtml(item.satuan)})</label>
+            <input type="number" class="jumlah-input" min="0" step="1" value="1" placeholder="1">
+          </div>
+        ` : ''}
       </div>
 
-      <div class="options">
+      <!-- Pilihan Kondisi -->
+      <div class="options" style="margin-top: 10px;">
         <label class="option">
           <input type="radio" class="kondisi-radio" name="kondisi${i}" value="BAIK">
           <span>BAIK</span>
@@ -468,6 +509,13 @@ function renderCheckItemHtml(item, i) {
         </label>
       </div>
 
+      <!-- Kotak Keterangan Tambahan -->
+      <div class="form-group" style="margin-top: 12px;">
+        <label class="form-label" style="font-size: 12px; color: #4b5563;">Keterangan Tambahan</label>
+        <textarea class="keterangan-tambahan" placeholder="Catatan kondisi, anomali, atau keterangan tambahan..." style="min-height: 55px; font-size: 13px;"></textarea>
+      </div>
+
+      <!-- Evidence Kerusakan -->
       <div class="item-evidence" id="itemEvidence${i}">
         <div class="item-evidence-label">⚠️ Kondisi rusak — lampirkan foto evidence</div>
         <div id="itemEvidenceList${i}"></div>
@@ -477,6 +525,20 @@ function renderCheckItemHtml(item, i) {
       </div>
     </div>
   `;
+}
+
+function toggleCustomUraian(selectEl, index) {
+  const itemEl = selectEl.closest(".check-item");
+  const customInput = itemEl.querySelector(".uraian-custom-input");
+  if (!customInput) return;
+  
+  if (selectEl.value === "__TAMBAH__") {
+    customInput.style.display = "block";
+    customInput.focus();
+  } else {
+    customInput.style.display = "none";
+    customInput.value = "";
+  }
 }
 
 function renderChecklist() {
@@ -489,7 +551,6 @@ function renderChecklist() {
 
   itemEvidenceCounts = templateItems.map(() => 0);
 
-  // Kelompokkan item berdasarkan kolom Kategori (urutan mengikuti kemunculan pertama tiap kategori di sheet)
   const sections = [];
   const sectionMap = {};
   templateItems.forEach((item, i) => {
@@ -589,7 +650,6 @@ function previewPhoto(input) {
   const evidence = input.closest(".evidence-item");
   const preview = evidence.querySelector(".photo-preview");
 
-  // Kosongkan input lain (kamera/galeri) di evidence yang sama agar tidak ada file ganda
   evidence.querySelectorAll(".photo-input").forEach(other => {
     if (other !== input) other.value = "";
   });
@@ -688,37 +748,62 @@ function collectFormData() {
     const templateIndex = parseInt(el.dataset.index, 10);
     const templateItem = templateItems[templateIndex];
 
-    // 1. Ukuran / Rating
+    // Uraian
+    let namaUraianFinal = templateItem.namaItem;
+    const selectUraian = el.querySelector(".uraian-select");
+    if (selectUraian) {
+      if (selectUraian.value === "__TAMBAH__") {
+        const customVal = el.querySelector(".uraian-custom-input").value.trim();
+        namaUraianFinal = customVal || "Lainnya";
+      } else {
+        namaUraianFinal = selectUraian.value;
+      }
+    }
+
+    // Merek & Nomor Seri
+    const merekEl = el.querySelector(".merek-input");
+    const merekFinal = merekEl && merekEl.value.trim() ? merekEl.value.trim() : "-";
+
+    const nomorEl = el.querySelector(".nomor-input");
+    const nomorFinal = nomorEl && nomorEl.value.trim() ? nomorEl.value.trim() : "-";
+
+    // Ukuran / Rating
     const ukuranEl = el.querySelector(".ukuran-input");
     let ukuranFinal = "-";
     if (templateItem.perluUkuran && ukuranEl && ukuranEl.value.trim() !== "") {
-      const nilaiInput = ukuranEl.value.trim();
-      const satuanUkr = templateItem.satuanUkuran || "";
-      ukuranFinal = satuanUkr ? `${nilaiInput} ${satuanUkr}` : nilaiInput;
+      const val = ukuranEl.value.trim();
+      ukuranFinal = templateItem.satuanUkuran ? `${val} ${templateItem.satuanUkuran}` : val;
     }
 
-    // 2. Jenis (String Input)
+    // Jenis
     const jenisEl = el.querySelector(".jenis-input");
-    let jenisFinal = "-";
-    if (templateItem.perluJenis && jenisEl && jenisEl.value.trim() !== "") {
-      jenisFinal = jenisEl.value.trim();
-    }
+    const jenisFinal = jenisEl && jenisEl.value.trim() ? jenisEl.value.trim() : "-";
 
-    const jumlah = el.querySelector(".jumlah-input").value;
+    // Jumlah
+    const jumlahEl = el.querySelector(".jumlah-input");
+    const jumlahVal = jumlahEl ? (jumlahEl.value || 0) : "-";
+
+    // Kondisi
     const kondisi = el.querySelector(`input[name="kondisi${templateIndex}"]:checked`);
-
     if (!kondisi) {
-      alert(`Kondisi untuk item "${templateItem.namaItem}" belum dipilih.`);
+      alert(`Kondisi untuk item "${namaUraianFinal}" belum dipilih.`);
       return null;
     }
 
+    // Keterangan Tambahan
+    const ketEl = el.querySelector(".keterangan-tambahan");
+    const ketTambahan = ketEl ? ketEl.value.trim() : "";
+
     items.push({
-      namaItem: templateItem.namaItem,
+      namaItem: namaUraianFinal,
+      merek: merekFinal,
+      nomor: nomorFinal,
       satuan: templateItem.satuan,
       ukuran: ukuranFinal,
-      jenis: jenisFinal, // Disimpan ke payload
-      jumlah: jumlah || 0,
-      kondisi: kondisi.value
+      jenis: jenisFinal,
+      jumlah: jumlahVal,
+      kondisi: kondisi.value,
+      keteranganTambahan: ketTambahan
     });
   }
 
@@ -801,20 +886,16 @@ async function submitInspection() {
       result = await sendToAppsScript(payload);
     } catch (err) {
       if (err.isServerError) {
-        // Ini error nyata dari server (permission, ID salah, sheet tidak ditemukan, dsb) —
-        // JANGAN diam-diam diantrekan, karena kirim ulang otomatis hanya akan upload foto duplikat
-        // tanpa pernah berhasil sampai penyebabnya diperbaiki.
         alert(
           "Gagal menyimpan ke spreadsheet: " + err.message +
           "\n\nFoto evidence kemungkinan SUDAH terupload ke Drive, tapi data checklist BELUM tersimpan. " +
-          "Jangan kirim ulang dulu sebelum masalah ini diperbaiki (bisa duplikat foto). Hubungi admin/cek pengaturan sheet."
+          "Perbaiki konfigurasi sebelum mengirim ulang."
         );
         submitBtn.disabled = false;
         submitBtn.textContent = "Kirim Inspeksi";
         return;
       }
 
-      // Bukan error server -> anggap benar-benar masalah koneksi, aman untuk diantrekan
       await queueSubmission(payload);
       await renderPendingQueue();
       alert("Gagal terhubung ke server. Data disimpan di HP dan akan otomatis dicoba kirim lagi nanti.");
@@ -854,6 +935,7 @@ function resetForm() {
   document.getElementById("gpsResult").textContent = "Lokasi belum diambil.";
   renderChecklist();
 }
+
 loadTemplate();
 renderPendingQueue();
 trySyncPending(false);
