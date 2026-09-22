@@ -484,10 +484,12 @@ function renderCheckItemHtml(item, i) {
           <div class="form-group" style="flex: 1; min-width: 140px;">
             <label class="form-label">Jenis</label>
             ${(item.opsiJenis && item.opsiJenis.length > 0) ? `
-              <select class="jenis-input">
+              <select class="jenis-input" onchange="toggleCustomJenis(this, ${i})">
                 <option value="">-- Pilih Jenis --</option>
                 ${item.opsiJenis.map(j => `<option value="${escapeHtml(j)}">${escapeHtml(j)}</option>`).join("")}
+                <option value="__TAMBAH_JENIS__">+ Tambah / Jenis Lain...</option>
               </select>
+              <input type="text" class="jenis-custom-input" placeholder="Ketik jenis baru..." style="display: none; margin-top: 6px;">
             ` : `
               <input type="text" class="jenis-input" placeholder="Jenis">
             `}
@@ -536,6 +538,20 @@ function toggleCustomUraian(selectEl, index) {
   if (!customInput) return;
   
   if (selectEl.value === "__TAMBAH__") {
+    customInput.style.display = "block";
+    customInput.focus();
+  } else {
+    customInput.style.display = "none";
+    customInput.value = "";
+  }
+}
+
+function toggleCustomJenis(selectEl, index) {
+  const formGroup = selectEl.closest(".form-group");
+  const customInput = formGroup ? formGroup.querySelector(".jenis-custom-input") : null;
+  if (!customInput) return;
+  
+  if (selectEl.value === "__TAMBAH_JENIS__") {
     customInput.style.display = "block";
     customInput.focus();
   } else {
@@ -778,9 +794,17 @@ function collectFormData() {
       ukuranFinal = templateItem.satuanUkuran ? `${val} ${templateItem.satuanUkuran}` : val;
     }
 
-    // Jenis
+    // Jenis (Dropdown dengan opsi custom / Input Teks)
     const jenisEl = el.querySelector(".jenis-input");
-    const jenisFinal = jenisEl && jenisEl.value.trim() ? jenisEl.value.trim() : "-";
+    let jenisFinal = "-";
+    if (jenisEl) {
+      if (jenisEl.tagName === "SELECT" && jenisEl.value === "__TAMBAH_JENIS__") {
+        const customJenisVal = el.querySelector(".jenis-custom-input").value.trim();
+        jenisFinal = customJenisVal || "Lainnya";
+      } else if (jenisEl.value.trim() !== "") {
+        jenisFinal = jenisEl.value.trim();
+      }
+    }
 
     // Jumlah
     const jumlahEl = el.querySelector(".jumlah-input");
