@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#111827">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Checklist Inspeksi Gardu</title>
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; }
+body { background: #f3f4f6; color: #111827; }
+
+header { background: #111827; color: white; padding: 18px; position: sticky; top: 0; z-index: 100; }
+.header-title { font-size: 20px; font-weight: 700; }
+.header-subtitle { font-size: 12px; color: #d1d5db; margin-top: 4px; }
+
+.container { width: 100%; max-width: 700px; margin: auto; padding: 16px; }
+
+.card { background: white; border-radius: 14px; padding: 18px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+.card-title { font-size: 16px; font-weight: 700; margin-bottom: 16px; }
+
+.form-group { margin-bottom: 14px; }
+.form-group:last-child { margin-bottom: 0; }
+.form-label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 7px; }
+
+input[type="text"], input[type="number"], textarea, select {
+  width: 100%; border: 1px solid #d1d5db; border-radius: 9px; padding: 12px; font-size: 14px; outline: none; background: white;
+}
+input:focus, textarea:focus, select:focus { border-color: #374151; }
+textarea { resize: vertical; min-height: 90px; }
+
+.datetime-box { background: #f9fafb; border-radius: 9px; padding: 12px; font-size: 13px; color: #374151; }
+
+.section-block { margin-bottom: 18px; }
+.section-block:last-child { margin-bottom: 0; }
+.section-header { display: flex; justify-content: space-between; align-items: center; background: #111827; color: white; padding: 13px 16px; border-radius: 10px 10px 0 0; cursor: pointer; user-select: none; }
+.section-header.collapsed { border-radius: 10px; }
+.section-title { font-size: 14px; font-weight: 700; }
+.section-count { font-size: 11px; color: #d1d5db; margin-right: 8px; }
+.section-arrow { display: inline-block; transition: transform 0.2s; font-size: 12px; }
+.section-header.collapsed .section-arrow { transform: rotate(-90deg); }
+.section-body { border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px; padding: 14px; background: #fafafa; }
+.section-body.collapsed { display: none; }
+.section-body .check-item:last-child { margin-bottom: 0; }
+
+.check-item { border: 1px solid #e5e7eb; border-radius: 10px; padding: 14px; margin-bottom: 12px; background: white; }
+.check-item:last-child { margin-bottom: 0; }
+.check-name { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+.check-satuan { font-size: 11px; color: #6b7280; margin-bottom: 10px; }
+
+.check-row { display: flex; gap: 10px; margin-bottom: 10px; }
+.check-row .form-group { flex: 1; margin-bottom: 0; }
+
+.options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.option input { display: none; }
+.option span { display: block; text-align: center; padding: 10px 5px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 12px; cursor: pointer; transition: 0.2s; }
+.option input:checked + span { background: #111827; color: white; border-color: #111827; }
+
+.item-evidence { display: none; margin-top: 12px; border-top: 1px dashed #e5e7eb; padding-top: 12px; }
+.item-evidence-label { font-size: 12px; font-weight: 600; color: #dc2626; margin-bottom: 10px; }
+
+.evidence-item { border: 1px solid #e5e7eb; border-radius: 12px; padding: 14px; margin-bottom: 14px; background: #fafafa; }
+.evidence-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.evidence-number { font-size: 14px; font-weight: 700; }
+.delete-button { border: none; background: transparent; color: #dc2626; font-size: 12px; font-weight: 600; cursor: pointer; }
+
+.photo-area { border: 2px dashed #d1d5db; border-radius: 10px; padding: 16px; text-align: center; background: white; }
+.photo-icon { font-size: 32px; margin-bottom: 7px; }
+.photo-text { font-size: 12px; color: #6b7280; margin-bottom: 10px; }
+.camera-button { display: inline-block; background: #111827; color: white; padding: 10px 16px; border-radius: 8px; font-size: 12px; cursor: pointer; }
+.gallery-button { display: inline-block; background: white; color: #111827; border: 1px solid #d1d5db; padding: 10px 16px; border-radius: 8px; font-size: 12px; cursor: pointer; }
+.photo-buttons { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.photo-input { display: none; }
+.photo-preview { display: none; width: 100%; max-height: 320px; object-fit: cover; border-radius: 9px; margin-top: 12px; }
+
+.add-evidence { width: 100%; border: 1px dashed #9ca3af; background: white; color: #374151; padding: 12px; border-radius: 9px; font-size: 13px; font-weight: 600; cursor: pointer; }
+.add-evidence:hover { background: #f9fafb; }
+
+.gps-button { width: 100%; border: 1px solid #d1d5db; background: white; padding: 12px; border-radius: 9px; font-size: 13px; font-weight: 600; cursor: pointer; }
+.gps-result { background: #f9fafb; border-radius: 9px; padding: 12px; margin-top: 10px; font-size: 12px; line-height: 1.8; color: #4b5563; }
+
+.submit-button { width: 100%; border: none; background: #111827; color: white; padding: 15px; border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer; }
+.submit-button:active { transform: scale(0.99); }
+.submit-button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.result { display: none; background: white; border-radius: 14px; padding: 18px; margin-top: 16px; border-left: 4px solid #111827; }
+.result-title { font-size: 16px; font-weight: 700; margin-bottom: 14px; }
+.result-row { font-size: 13px; margin-bottom: 8px; color: #374151; }
+.result-row a { color: #111827; }
+
+.loading-text { text-align: center; font-size: 13px; color: #6b7280; padding: 20px; }
+
+.pending-card { background: #fffbeb; border: 1px solid #fcd34d; border-radius: 14px; padding: 16px; margin-bottom: 16px; display: none; }
+.pending-title { font-size: 14px; font-weight: 700; color: #92400e; margin-bottom: 8px; }
+.pending-item { font-size: 12px; color: #78350f; margin-bottom: 6px; }
+.pending-sync-btn { width: 100%; border: none; background: #92400e; color: white; padding: 10px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; margin-top: 8px; }
+
+.modal-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+  align-items: center; justify-content: center; z-index: 200; padding: 16px;
+}
+.modal-box { background: white; border-radius: 14px; padding: 20px; max-width: 420px; width: 100%; }
+.modal-title { font-size: 16px; font-weight: 700; margin-bottom: 12px; }
+.modal-summary { font-size: 13px; color: #374151; line-height: 1.8; margin-bottom: 18px; }
+.modal-buttons { display: flex; gap: 10px; }
+.modal-buttons button { flex: 1; padding: 12px; border-radius: 9px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; }
+.modal-cancel { background: #f3f4f6; color: #111827; }
+.modal-confirm { background: #111827; color: white; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-title">Checklist Inspeksi Gardu</div>
+  <div class="header-subtitle">Isi data, checklist, dan foto evidence</div>
+</header>
+
+<div class="container">
+
+  <!-- ANTREAN OFFLINE -->
+  <div class="pending-card" id="pendingCard">
+    <div class="pending-title">📤 Inspeksi Menunggu Dikirim</div>
+    <div id="pendingList"></div>
+    <button type="button" class="pending-sync-btn" onclick="trySyncPending(true)">Coba Kirim Sekarang</button>
+  </div>
+
+  <!-- DATA UMUM -->
+  <div class="card">
+    <div class="card-title">Data Umum</div>
+
+    <div class="form-group">
+      <label class="form-label">Nomor Gardu</label>
+      <input type="text" id="nomorGardu" list="garduDatalist" placeholder="Pilih atau ketik Nomor Gardu">
+      <datalist id="garduDatalist"></datalist>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Alamat</label>
+      <input type="text" id="alamat" placeholder="Alamat lokasi gardu">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Petugas 1</label>
+      <input type="text" id="petugas1" placeholder="Nama petugas 1">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Petugas 2</label>
+      <input type="text" id="petugas2" placeholder="Nama petugas 2">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Waktu Inspeksi</label>
+      <div class="datetime-box" id="datetime">-</div>
+    </div>
+  </div>
+
+  <!-- CHECKLIST (dinamis dari sheet Template) -->
+  <div class="card">
+    <div class="card-title">Checklist Peralatan</div>
+    <div id="checklistContainer">
+      <div class="loading-text">Memuat daftar item dari Template...</div>
+    </div>
+  </div>
+
+  <!-- GPS -->
+  <div class="card">
+    <div class="card-title">Lokasi Inspeksi</div>
+    <button type="button" class="gps-button" onclick="getGPS()">📍 Ambil Lokasi GPS</button>
+    <div class="gps-result" id="gpsResult">Lokasi belum diambil.</div>
+  </div>
+
+  <button type="button" class="submit-button" id="submitBtn" onclick="openConfirmModal()">Kirim Inspeksi</button>
+
+  <div class="result" id="result">
+    <div class="result-title">✅ Inspeksi Terkirim</div>
+    <div class="result-row" id="resultGardu"></div>
+    <div class="result-row" id="resultPetugas"></div>
+    <div class="result-row" id="resultTime"></div>
+    <div class="result-row" id="resultLinks"></div>
+  </div>
+
+</div>
+
+<!-- MODAL KONFIRMASI SUBMIT -->
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal-box">
+    <div class="modal-title">Konfirmasi Pengiriman</div>
+    <div class="modal-summary" id="confirmSummary"></div>
+    <div class="modal-buttons">
+      <button class="modal-cancel" onclick="closeConfirmModal()">Batal, Periksa Lagi</button>
+      <button class="modal-confirm" onclick="submitInspection()">Ya, Kirim</button>
+    </div>
+  </div>
+</div>
+
+<script>
+
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxCZgMuqGnLke4f0aRgLbbIH63IHJCoUZMvGDgCJa3M83YpmiYL6m5vUSjF7lBy2O_3JQ/exec";
+const API_TOKEN = "UgP0irtQFWGQuAhmkXpYOqUK1l2yhU9rmd9P8VbG1LQy0G8d8GsEPmt4I3X5peWR";
+
+let templateItems = [];
+let latitude = null, longitude = null, gpsAccuracy = null;
+
+function escapeHtml(value) {
+  return String(value === null || value === undefined ? "" : value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+const DB_NAME = "checklistGarduDB";
+const STORE_NAME = "pendingSubmissions";
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = () => {
+      req.result.createObjectStore(STORE_NAME, { keyPath: "id", autoIncrement: true });
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function queueSubmission(payload) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, "readwrite");
+    tx.objectStore(STORE_NAME).add({ payload, createdAt: new Date().toISOString() });
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function getAllPending() {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, "readonly");
+    const req = tx.objectStore(STORE_NAME).getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function deletePending(id) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, "readwrite");
+    tx.objectStore(STORE_NAME).delete(id);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function sendToAppsScript(payload) {
+  const formBody = new URLSearchParams();
+  formBody.append("postData", JSON.stringify(payload));
+  formBody.append("token", API_TOKEN);
+
+  let res;
+  try {
+    res = await fetch(APPS_SCRIPT_URL, {
+      method: "POST",
+      body: formBody
+    });
+  } catch (networkErr) {
+    // fetch() gagal total (offline, DNS, dsb) -> ini benar-benar masalah koneksi
+    throw networkErr;
+  }
+
+  const text = await res.text();
+  let result;
+  try {
+    result = JSON.parse(text);
+  } catch (e) {
+    const err = new Error("Respon bukan format JSON: " + text.substring(0, 100));
+    err.isServerError = true;
+    throw err;
+  }
+
+  if (!result.success) {
+    const err = new Error(result.error || "Gagal dari server.");
+    err.isServerError = true; // request sampai ke server, tapi ditolak/gagal proses (bukan masalah koneksi)
+    throw err;
+  }
+
+  return result;
+}
+
+let isSyncing = false;
+
+async function trySyncPending(showAlert) {
+  if (isSyncing) {
+    if (showAlert) alert("Sinkronisasi sedang berlangsung, mohon tunggu sebentar...");
+    return;
+  }
+
+  const syncBtn = document.querySelector(".pending-sync-btn");
+  const pending = await getAllPending();
+  await renderPendingQueue(pending);
+
+  if (pending.length === 0) return;
+
+  if (!navigator.onLine) {
+    if (showAlert) alert("Masih belum ada internet, coba lagi nanti.");
+    return;
+  }
+
+  isSyncing = true;
+  if (syncBtn) {
+    syncBtn.disabled = true;
+    syncBtn.style.opacity = "0.6";
+    syncBtn.style.cursor = "not-allowed";
+    syncBtn.textContent = "⏳ Sedang Mengirim Antrean...";
+  }
+
+  let berhasil = 0, gagal = 0;
+
+  try {
+    
+    const itemsToSend = await getAllPending();
+
+    for (const item of itemsToSend) {
+      try {
+        await sendToAppsScript(item.payload);
+        await deletePending(item.id);
+        berhasil++;
+      } catch (err) {
+        gagal++;
+      }
+    }
+  } finally {
+    isSyncing = false;
+    if (syncBtn) {
+      syncBtn.disabled = false;
+      syncBtn.style.opacity = "1";
+      syncBtn.style.cursor = "pointer";
+      syncBtn.textContent = "Coba Kirim Sekarang";
+    }
+
+    const sisa = await getAllPending();
+    await renderPendingQueue(sisa);
+
+    if (showAlert) {
+      alert(`Sinkronisasi selesai. Berhasil: ${berhasil}, Gagal: ${gagal}.`);
+    }
+  }
+}
+
+async function renderPendingQueue(pending) {
+  pending = pending || await getAllPending();
+  const card = document.getElementById("pendingCard");
+  const list = document.getElementById("pendingList");
+
+  if (pending.length === 0) {
+    card.style.display = "none";
+    return;
+  }
+
+  card.style.display = "block";
+  list.innerHTML = pending.map(p => {
+    const d = p.payload;
+    return `<div class="pending-item">• ${escapeHtml(d.nomorGardu)} — ${escapeHtml(d.petugas1)} & ${escapeHtml(d.petugas2)} (disimpan ${new Date(p.createdAt).toLocaleString("id-ID")})</div>`;
+  }).join("");
+}
+
+window.addEventListener("online", () => trySyncPending(false));
+
+function updateDatetime() {
+  document.getElementById("datetime").textContent = new Date().toLocaleString("id-ID");
+}
+updateDatetime();
+setInterval(updateDatetime, 1000 * 30);
+
+async function loadTemplate() {
+  const container = document.getElementById("checklistContainer");
+  const CACHE_KEY = "checklist_template_cache";
+  const GARDU_CACHE_KEY = "gardu_list_cache";
+
+  try {
+    const res = await fetch(APPS_SCRIPT_URL + "?action=template&token=" + encodeURIComponent(API_TOKEN));
+    const data = await res.json();
+
+    if (data.error) throw new Error(data.error);
+
+    templateItems = data.items || [];
+    const garduList = data.garduList || [];
+
+    localStorage.setItem(CACHE_KEY, JSON.stringify(templateItems));
+    localStorage.setItem(GARDU_CACHE_KEY, JSON.stringify(garduList));
+
+    renderChecklist();
+    renderGarduDropdown(garduList);
+
+  } catch (err) {
+    const cached = localStorage.getItem(CACHE_KEY);
+    const cachedGardu = localStorage.getItem(GARDU_CACHE_KEY);
+
+    if (cached) {
+      templateItems = JSON.parse(cached);
+      renderChecklist();
+      if (cachedGardu) renderGarduDropdown(JSON.parse(cachedGardu));
+
+      container.insertAdjacentHTML(
+        "afterbegin",
+        `<div class="loading-text" style="margin-bottom:10px;">⚠️ Offline: menampilkan daftar dari data tersimpan terakhir.</div>`
+      );
+    } else {
+      container.innerHTML = `<div class="loading-text">Gagal memuat template. Periksa koneksi internet Anda.</div>`;
+    }
+  }
+}
+
+function renderGarduDropdown(garduList) {
+  const datalist = document.getElementById("garduDatalist");
+  if (!datalist) return;
+  datalist.innerHTML = garduList.map(g => `<option value="${g}">`).join("");
+}
+
+function renderCheckItemHtml(item, i) {
+  return `
+    <div class="check-item" data-index="${i}">
+      <div class="check-name">${i + 1}. ${item.namaItem}</div>
+      <div class="check-satuan">Satuan Unit: <strong>${item.satuan || "-"}</strong></div>
+
+      <div class="check-row" style="flex-wrap: wrap;">
+        ${item.perluUkuran ? `
+          <div class="form-group" style="flex: 1; min-width: 140px;">
+            <label class="form-label">Ukuran / Rating</label>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <input type="number" class="ukuran-input" step="any" placeholder="Nilai">
+              <span style="font-size: 13px; font-weight: 600; color: #374151; white-space: nowrap;">${item.satuanUkuran || ''}</span>
+            </div>
+          </div>
+        ` : ''}
+
+        ${item.perluJenis ? `
+          <div class="form-group" style="flex: 1; min-width: 140px;">
+            <label class="form-label">Jenis</label>
+            <input type="text" class="jenis-input" placeholder="Misal: Polimer / Keramik">
+          </div>
+        ` : ''}
+
+        <div class="form-group" style="flex: 0.8; min-width: 100px;">
+          <label class="form-label">Jumlah (${item.satuan || 'Unit'})</label>
+          <input type="number" class="jumlah-input" min="0" step="1" placeholder="0">
+        </div>
+      </div>
+
+      <div class="options">
+        <label class="option">
+          <input type="radio" class="kondisi-radio" name="kondisi${i}" value="BAIK">
+          <span>BAIK</span>
+        </label>
+        <label class="option">
+          <input type="radio" class="kondisi-radio" name="kondisi${i}" value="RUSAK">
+          <span>RUSAK</span>
+        </label>
+        <label class="option">
+          <input type="radio" class="kondisi-radio" name="kondisi${i}" value="N/A">
+          <span>N/A</span>
+        </label>
+      </div>
+
+      <div class="item-evidence" id="itemEvidence${i}">
+        <div class="item-evidence-label">⚠️ Kondisi rusak — lampirkan foto evidence</div>
+        <div id="itemEvidenceList${i}"></div>
+        <button type="button" class="add-evidence" id="addEvBtn${i}" onclick="addItemEvidence(${i})">
+          + Tambah Foto Evidence ${i + 1}.1
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function renderChecklist() {
+  const container = document.getElementById("checklistContainer");
+
+  if (templateItems.length === 0) {
+    container.innerHTML = `<div class="loading-text">Belum ada item di sheet Template.</div>`;
+    return;
+  }
+
+  itemEvidenceCounts = templateItems.map(() => 0);
+
+  // Kelompokkan item berdasarkan kolom Kategori (urutan mengikuti kemunculan pertama tiap kategori di sheet)
+  const sections = [];
+  const sectionMap = {};
+  templateItems.forEach((item, i) => {
+    const kategori = item.kategori || "Tanpa Kategori";
+    if (!sectionMap[kategori]) {
+      sectionMap[kategori] = { kategori, indices: [] };
+      sections.push(sectionMap[kategori]);
+    }
+    sectionMap[kategori].indices.push(i);
+  });
+
+  container.innerHTML = sections.map((section, sIdx) => `
+    <div class="section-block">
+      <div class="section-header" id="sectionHeader${sIdx}" onclick="toggleSection(${sIdx})">
+        <div class="section-title">${sIdx + 1}. ${escapeHtml(section.kategori)}</div>
+        <div style="display:flex; align-items:center;">
+          <span class="section-count">${section.indices.length} item</span>
+          <span class="section-arrow" id="sectionArrow${sIdx}">▾</span>
+        </div>
+      </div>
+      <div class="section-body" id="sectionBody${sIdx}">
+        ${section.indices.map(i => renderCheckItemHtml(templateItems[i], i)).join("")}
+      </div>
+    </div>
+  `).join("");
+
+  container.querySelectorAll(".kondisi-radio").forEach(radio => {
+    radio.addEventListener("change", function () {
+      const item = this.closest(".check-item");
+      if (!item) return;
+
+      const evidenceBox = item.querySelector(".item-evidence");
+      if (!evidenceBox) return;
+
+      evidenceBox.style.display = this.value === "RUSAK" ? "block" : "none";
+    });
+  });
+}
+
+function toggleSection(sIdx) {
+  const header = document.getElementById("sectionHeader" + sIdx);
+  const body = document.getElementById("sectionBody" + sIdx);
+  if (!header || !body) return;
+  header.classList.toggle("collapsed");
+  body.classList.toggle("collapsed");
+}
+
+let itemEvidenceCounts = [];
+
+function addItemEvidence(itemIndex) {
+  itemEvidenceCounts[itemIndex] = (itemEvidenceCounts[itemIndex] || 0) + 1;
+  const subIndex = itemEvidenceCounts[itemIndex];
+  const label = (itemIndex + 1) + "." + subIndex;
+
+  const list = document.getElementById("itemEvidenceList" + itemIndex);
+
+  const evidence = document.createElement("div");
+  evidence.className = "evidence-item";
+  evidence.dataset.itemIndex = itemIndex;
+  evidence.dataset.label = label;
+  evidence.innerHTML = `
+    <div class="evidence-header">
+      <div class="evidence-number">Foto ${label}</div>
+      <button type="button" class="delete-button" onclick="deleteItemEvidence(this, ${itemIndex})">Hapus</button>
+    </div>
+
+    <div class="photo-area">
+      <div class="photo-icon">📷</div>
+      <div class="photo-text">Ambil dari kamera atau pilih dari galeri</div>
+      <div class="photo-buttons">
+        <label class="camera-button">
+          Ambil Foto
+          <input type="file" class="photo-input" accept="image/*" capture="environment" onchange="previewPhoto(this)">
+        </label>
+        <label class="gallery-button">
+          Pilih dari Galeri
+          <input type="file" class="photo-input" accept="image/*" onchange="previewPhoto(this)">
+        </label>
+      </div>
+      <img class="photo-preview" alt="Preview foto evidence">
+    </div>
+
+    <div class="form-group" style="margin-top: 14px;">
+      <label class="form-label">Keterangan / Temuan</label>
+      <textarea class="evidence-description" placeholder="Tuliskan temuan yang terlihat pada foto ini..."></textarea>
+    </div>
+  `;
+
+  list.appendChild(evidence);
+  updateAddEvidenceButtonLabel(itemIndex);
+}
+
+function previewPhoto(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  const evidence = input.closest(".evidence-item");
+  const preview = evidence.querySelector(".photo-preview");
+
+  // Kosongkan input lain (kamera/galeri) di evidence yang sama agar tidak ada file ganda
+  evidence.querySelectorAll(".photo-input").forEach(other => {
+    if (other !== input) other.value = "";
+  });
+
+  preview.src = URL.createObjectURL(file);
+  preview.style.display = "block";
+}
+
+function deleteItemEvidence(button, itemIndex) {
+  const evidence = button.closest(".evidence-item");
+  if (!evidence) return;
+
+  const preview = evidence.querySelector(".photo-preview");
+  if (preview && preview.src && preview.src.startsWith("blob:")) {
+    URL.revokeObjectURL(preview.src);
+  }
+
+  evidence.remove();
+  renumberItemEvidence(itemIndex);
+}
+
+function renumberItemEvidence(itemIndex) {
+  const list = document.getElementById("itemEvidenceList" + itemIndex);
+  const items = list.querySelectorAll(".evidence-item");
+
+  items.forEach((el, idx) => {
+    const label = (itemIndex + 1) + "." + (idx + 1);
+    el.dataset.label = label;
+    el.querySelector(".evidence-number").textContent = "Foto " + label;
+  });
+
+  itemEvidenceCounts[itemIndex] = items.length;
+  updateAddEvidenceButtonLabel(itemIndex);
+}
+
+function updateAddEvidenceButtonLabel(itemIndex) {
+  const btn = document.getElementById("addEvBtn" + itemIndex);
+  if (btn) {
+    btn.textContent = `+ Tambah Foto Evidence ${itemIndex + 1}.${(itemEvidenceCounts[itemIndex] || 0) + 1}`;
+  }
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(",")[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function getGPS() {
+  const result = document.getElementById("gpsResult");
+
+  if (!navigator.geolocation) {
+    result.textContent = "Browser tidak mendukung GPS.";
+    return;
+  }
+
+  result.textContent = "Mengambil lokasi...";
+
+  navigator.geolocation.getCurrentPosition(
+    function (position) {
+      latitude = position.coords.latitude;
+      longitude = position.coords.longitude;
+      gpsAccuracy = position.coords.accuracy;
+
+      result.innerHTML = `<strong>Latitude:</strong> ${latitude.toFixed(6)}<br>
+        <strong>Longitude:</strong> ${longitude.toFixed(6)}<br>
+        <strong>Akurasi:</strong> ${gpsAccuracy.toFixed(1)} meter`;
+    },
+    function (error) {
+      result.textContent = "GPS gagal: " + error.message;
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+  );
+}
+
+function collectFormData() {
+  const nomorGardu = document.getElementById("nomorGardu").value.trim();
+  const alamat = document.getElementById("alamat").value.trim();
+  const petugas1 = document.getElementById("petugas1").value.trim();
+  const petugas2 = document.getElementById("petugas2").value.trim();
+
+  if (!nomorGardu) { alert("Nomor gardu wajib diisi."); return null; }
+  if (!alamat) { alert("Alamat wajib diisi."); return null; }
+  if (!petugas1) { alert("Nama petugas 1 wajib diisi."); return null; }
+  if (!petugas2) { alert("Nama petugas 2 wajib diisi."); return null; }
+
+  const checkItems = document.querySelectorAll("#checklistContainer .check-item");
+  if (checkItems.length === 0) { alert("Checklist belum dimuat."); return null; }
+
+  const items = [];
+  for (let i = 0; i < checkItems.length; i++) {
+    const el = checkItems[i];
+    const templateIndex = parseInt(el.dataset.index, 10);
+    const templateItem = templateItems[templateIndex];
+
+    // 1. Ukuran / Rating
+    const ukuranEl = el.querySelector(".ukuran-input");
+    let ukuranFinal = "-";
+    if (templateItem.perluUkuran && ukuranEl && ukuranEl.value.trim() !== "") {
+      const nilaiInput = ukuranEl.value.trim();
+      const satuanUkr = templateItem.satuanUkuran || "";
+      ukuranFinal = satuanUkr ? `${nilaiInput} ${satuanUkr}` : nilaiInput;
+    }
+
+    // 2. Jenis (String Input)
+    const jenisEl = el.querySelector(".jenis-input");
+    let jenisFinal = "-";
+    if (templateItem.perluJenis && jenisEl && jenisEl.value.trim() !== "") {
+      jenisFinal = jenisEl.value.trim();
+    }
+
+    const jumlah = el.querySelector(".jumlah-input").value;
+    const kondisi = el.querySelector(`input[name="kondisi${templateIndex}"]:checked`);
+
+    if (!kondisi) {
+      alert(`Kondisi untuk item "${templateItem.namaItem}" belum dipilih.`);
+      return null;
+    }
+
+    items.push({
+      namaItem: templateItem.namaItem,
+      satuan: templateItem.satuan,
+      ukuran: ukuranFinal,
+      jenis: jenisFinal, // Disimpan ke payload
+      jumlah: jumlah || 0,
+      kondisi: kondisi.value
+    });
+  }
+
+  return { nomorGardu, alamat, petugas1, petugas2, items };
+}
+
+function openConfirmModal() {
+  const data = collectFormData();
+  if (!data) return;
+
+  const evidenceCountNow = document.querySelectorAll(".evidence-item").length;
+
+  document.getElementById("confirmSummary").innerHTML = `
+    <strong>Nomor Gardu:</strong> ${escapeHtml(data.nomorGardu)}<br>
+    <strong>Alamat:</strong> ${escapeHtml(data.alamat)}<br>
+    <strong>Petugas:</strong> ${escapeHtml(data.petugas1)} & ${escapeHtml(data.petugas2)}<br>
+    <strong>Jumlah item checklist:</strong> ${data.items.length}<br>
+    <strong>Jumlah foto evidence:</strong> ${evidenceCountNow}<br><br>
+    Pastikan semua data sudah benar sebelum dikirim.
+  `;
+
+  document.getElementById("confirmModal").style.display = "flex";
+}
+
+function closeConfirmModal() {
+  document.getElementById("confirmModal").style.display = "none";
+}
+
+async function submitInspection() {
+  const data = collectFormData();
+  if (!data) { closeConfirmModal(); return; }
+
+  closeConfirmModal();
+
+  const submitBtn = document.getElementById("submitBtn");
+  submitBtn.disabled = true;
+  submitBtn.textContent = "Mengirim...";
+
+  try {
+    const evidenceEls = document.querySelectorAll(".evidence-item");
+    const evidence = [];
+
+    for (const el of evidenceEls) {
+      const photoInputs = el.querySelectorAll(".photo-input");
+      const description = el.querySelector(".evidence-description").value.trim();
+      let file = null;
+      photoInputs.forEach(inp => {
+        if (inp.files && inp.files[0]) file = inp.files[0];
+      });
+      const label = el.dataset.label || "";
+
+      if (file) {
+        const base64 = await fileToBase64(file);
+        evidence.push({ label, base64, mimeType: file.type, description });
+      } else {
+        evidence.push({ label, base64: null, mimeType: null, description });
+      }
+    }
+
+    const now = new Date();
+    const payload = {
+      ...data,
+      timestamp: now.toISOString(),
+      gps: { latitude, longitude, accuracy: gpsAccuracy },
+      evidence
+    };
+
+    if (!navigator.onLine) {
+      await queueSubmission(payload);
+      await renderPendingQueue();
+      alert("Tidak ada internet. Data disimpan di HP dan akan otomatis terkirim saat koneksi kembali.");
+      resetForm();
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Kirim Inspeksi";
+      return;
+    }
+
+    let result;
+    try {
+      result = await sendToAppsScript(payload);
+    } catch (err) {
+      if (err.isServerError) {
+        // Ini error nyata dari server (permission, ID salah, sheet tidak ditemukan, dsb) —
+        // JANGAN diam-diam diantrekan, karena kirim ulang otomatis hanya akan upload foto duplikat
+        // tanpa pernah berhasil sampai penyebabnya diperbaiki.
+        alert(
+          "Gagal menyimpan ke spreadsheet: " + err.message +
+          "\n\nFoto evidence kemungkinan SUDAH terupload ke Drive, tapi data checklist BELUM tersimpan. " +
+          "Jangan kirim ulang dulu sebelum masalah ini diperbaiki (bisa duplikat foto). Hubungi admin/cek pengaturan sheet."
+        );
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Kirim Inspeksi";
+        return;
+      }
+
+      // Bukan error server -> anggap benar-benar masalah koneksi, aman untuk diantrekan
+      await queueSubmission(payload);
+      await renderPendingQueue();
+      alert("Gagal terhubung ke server. Data disimpan di HP dan akan otomatis dicoba kirim lagi nanti.");
+      resetForm();
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Kirim Inspeksi";
+      return;
+    }
+
+    document.getElementById("resultGardu").textContent = "Nomor Gardu: " + data.nomorGardu;
+    document.getElementById("resultPetugas").textContent = "Petugas: " + data.petugas1 + " & " + data.petugas2;
+    document.getElementById("resultTime").textContent = "Waktu: " + now.toLocaleString("id-ID");
+    document.getElementById("resultLinks").innerHTML =
+      `<a href="${result.sheetUrl}" target="_blank">Buka Sheet Jawaban</a> · ` +
+      `<a href="${result.folderUrl}" target="_blank">Buka Folder Foto</a>`;
+
+    document.getElementById("result").style.display = "block";
+    document.getElementById("result").scrollIntoView({ behavior: "smooth" });
+
+    submitBtn.textContent = "Kirim Inspeksi";
+    submitBtn.disabled = false;
+
+  } catch (err) {
+    alert("Terjadi kesalahan saat mengirim: " + err.message);
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Kirim Inspeksi";
+  }
+}
+
+function resetForm() {
+  document.getElementById("nomorGardu").value = "";
+  document.getElementById("alamat").value = "";
+  document.getElementById("petugas1").value = "";
+  document.getElementById("petugas2").value = "";
+  itemEvidenceCounts = [];
+  latitude = longitude = gpsAccuracy = null;
+  document.getElementById("gpsResult").textContent = "Lokasi belum diambil.";
+  renderChecklist();
+}
+loadTemplate();
+renderPendingQueue();
+trySyncPending(false);
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("service-worker.js").catch((err) => {
+      console.log("Gagal mendaftarkan service worker:", err);
+    });
+  });
+}
+</script>
+
+</body>
+</html>
