@@ -166,7 +166,16 @@ textarea { resize: vertical; min-height: 90px; }
     </div>
   </div>
 
-  <!-- GPS -->
+  <!-- KOTAK KETERANGAN TAMBAHAN (SEBELUM GPS) -->
+  <div class="card">
+    <div class="card-title">Keterangan Tambahan</div>
+    <div class="form-group">
+      <label class="form-label">Catatan / Keterangan Lain Gardu Ini (Opsional)</label>
+      <textarea id="keteranganTambahan" placeholder="Tuliskan catatan khusus, kondisi umum lingkungan gardu, atau informasi tambahan lainnya di sini..."></textarea>
+    </div>
+  </div>
+
+  <!-- LOKASI GPS -->
   <div class="card">
     <div class="card-title">Lokasi Inspeksi</div>
     <button type="button" class="gps-button" onclick="getGPS()">📍 Ambil Lokasi GPS</button>
@@ -198,7 +207,7 @@ textarea { resize: vertical; min-height: 90px; }
 </div>
 
 <script>
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwAIdRP0WQJZvZoPjRd4qeL_SKyy5qrEYQ4ih899XyYMgcBMJ4SxV3oS5_iI1QSOJ5Ylw/exec";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwzL5aLncnf59jOxl6PY2uivKULwvVosK8LWHbhLkLNev2z4So_J0nXmr6iwoRv9ugbwg/exec";
 const API_TOKEN = "UgP0irtQFWGQuAhmkXpYOqUK1l2yhU9rmd9P8VbG1LQy0G8d8GsEPmt4I3X5peWR";
 
 let templateItems = [];
@@ -441,11 +450,11 @@ function renderCheckItemHtml(item, i) {
           <div class="check-name">${i + 1}.${escapeHtml(item.namaItem)}</div>
         `}
         ${butuhJumlah ? `
-          <div class="check-satuan" style="margin-top: 4px;">Satuan Unit: <strong>${escapeHtml(item.satuan)}</strong></div>
+          <div class="check-satuan" style="margin-top: 4px;">Satuan: <strong>${escapeHtml(item.satuan)}</strong></div>
         ` : ''}
       </div>
 
-      <!-- Baris Input Spesifikasi Alat -->
+      <!-- Input Spesifikasi Alat -->
       <div class="check-row" style="flex-wrap: wrap;">
         ${item.perluMerek ? `
           <div class="form-group" style="flex: 1; min-width: 130px;">
@@ -487,7 +496,7 @@ function renderCheckItemHtml(item, i) {
 
         ${butuhJumlah ? `
           <div class="form-group" style="flex: 0.7; min-width: 90px;">
-            <label class="form-label">Jumlah (${escapeHtml(item.satuan)})</label>
+            <label class="form-label">Jumlah:</label>
             <input type="number" class="jumlah-input" min="0" step="1" value="1" placeholder="1">
           </div>
         ` : ''}
@@ -509,13 +518,7 @@ function renderCheckItemHtml(item, i) {
         </label>
       </div>
 
-      <!-- Kotak Keterangan Tambahan -->
-      <div class="form-group" style="margin-top: 12px;">
-        <label class="form-label" style="font-size: 12px; color: #4b5563;">Keterangan Tambahan</label>
-        <textarea class="keterangan-tambahan" placeholder="Catatan kondisi, anomali, atau keterangan tambahan..." style="min-height: 55px; font-size: 13px;"></textarea>
-      </div>
-
-      <!-- Evidence Kerusakan -->
+      <!-- Evidence Kerusakan (Hanya muncul jika kondisi RUSAK) -->
       <div class="item-evidence" id="itemEvidence${i}">
         <div class="item-evidence-label">⚠️ Kondisi rusak — lampirkan foto evidence</div>
         <div id="itemEvidenceList${i}"></div>
@@ -790,10 +793,6 @@ function collectFormData() {
       return null;
     }
 
-    // Keterangan Tambahan
-    const ketEl = el.querySelector(".keterangan-tambahan");
-    const ketTambahan = ketEl ? ketEl.value.trim() : "";
-
     items.push({
       namaItem: namaUraianFinal,
       merek: merekFinal,
@@ -802,12 +801,15 @@ function collectFormData() {
       ukuran: ukuranFinal,
       jenis: jenisFinal,
       jumlah: jumlahVal,
-      kondisi: kondisi.value,
-      keteranganTambahan: ketTambahan
+      kondisi: kondisi.value
     });
   }
 
-  return { nomorGardu, alamat, petugas1, petugas2, items };
+  // Keterangan Tambahan Umum dari kartu tersendiri
+  const ketTambahanInput = document.getElementById("keteranganTambahan");
+  const keteranganTambahan = ketTambahanInput ? ketTambahanInput.value.trim() : "";
+
+  return { nomorGardu, alamat, petugas1, petugas2, items, keteranganTambahan };
 }
 
 function openConfirmModal() {
@@ -821,7 +823,8 @@ function openConfirmModal() {
     <strong>Alamat:</strong> ${escapeHtml(data.alamat)}<br>
     <strong>Petugas:</strong> ${escapeHtml(data.petugas1)} & ${escapeHtml(data.petugas2)}<br>
     <strong>Jumlah item checklist:</strong> ${data.items.length}<br>
-    <strong>Jumlah foto evidence:</strong> ${evidenceCountNow}<br><br>
+    <strong>Jumlah foto evidence:</strong> ${evidenceCountNow}<br>
+    <strong>Keterangan Tambahan:</strong> ${escapeHtml(data.keteranganTambahan || "-")}<br><br>
     Pastikan semua data sudah benar sebelum dikirim.
   `;
 
@@ -930,6 +933,8 @@ function resetForm() {
   document.getElementById("alamat").value = "";
   document.getElementById("petugas1").value = "";
   document.getElementById("petugas2").value = "";
+  const ketEl = document.getElementById("keteranganTambahan");
+  if (ketEl) ketEl.value = "";
   itemEvidenceCounts = [];
   latitude = longitude = gpsAccuracy = null;
   document.getElementById("gpsResult").textContent = "Lokasi belum diambil.";
