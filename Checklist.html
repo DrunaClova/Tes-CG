@@ -133,8 +133,16 @@ textarea { resize: vertical; min-height: 90px; }
 
     <div class="form-group">
       <label class="form-label">Nomor Gardu</label>
-      <input type="text" id="nomorGardu" list="garduDatalist" placeholder="Pilih atau ketik Nomor Gardu">
+      <input type="text" id="nomorGardu" list="garduDatalist" placeholder="Pilih atau ketik Nomor Gardu" oninput="handleGarduInput(this.value)">
       <datalist id="garduDatalist"></datalist>
+    </div>
+
+    <!-- KOLOM BARU NAMA ULP (AUTO + OVERRIDE) -->
+    <div class="form-group">
+      <label class="form-label">Nama ULP</label>
+      <select id="namaUlp">
+        <option value="">-- Pilih / Otomatis ULP --</option>
+      </select>
     </div>
 
     <div class="form-group">
@@ -166,7 +174,7 @@ textarea { resize: vertical; min-height: 90px; }
     </div>
   </div>
 
-  <!-- KOTAK KETERANGAN TAMBAHAN (SEBELUM GPS) -->
+  <!-- KOTAK KETERANGAN TAMBAHAN -->
   <div class="card">
     <div class="card-title">Keterangan Tambahan</div>
     <div class="form-group">
@@ -187,6 +195,7 @@ textarea { resize: vertical; min-height: 90px; }
   <div class="result" id="result">
     <div class="result-title">✅ Inspeksi Terkirim</div>
     <div class="result-row" id="resultGardu"></div>
+    <div class="result-row" id="resultUlp"></div>
     <div class="result-row" id="resultPetugas"></div>
     <div class="result-row" id="resultTime"></div>
     <div class="result-row" id="resultLinks"></div>
@@ -207,10 +216,11 @@ textarea { resize: vertical; min-height: 90px; }
 </div>
 
 <script>
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwzL5aLncnf59jOxl6PY2uivKULwvVosK8LWHbhLkLNev2z4So_J0nXmr6iwoRv9ugbwg/exec";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyBeo_62V3B-gMJJ6_aOtCxBdnK90Ep7WFWrfDmLWwkH3lSrLgi4cJm4nFfUqB_IQNuwA/exec";
 const API_TOKEN = "UgP0irtQFWGQuAhmkXpYOqUK1l2yhU9rmd9P8VbG1LQy0G8d8GsEPmt4I3X5peWR";
 
 let templateItems = [];
+let ulpMappingList = [];
 let latitude = null, longitude = null, gpsAccuracy = null;
 
 function escapeHtml(value) {
@@ -302,6 +312,7 @@ async function sendToAppsScript(payload) {
 
 let isSyncing = false;
 
+// PERBAIKAN BUG: Pengiriman Antrean Offline Murni Sekuensial (Queue Processor Satu per Satu)
 async function trySyncPending(showAlert) {
   if (isSyncing) {
     if (showAlert) alert("Sinkronisasi sedang berlangsung, mohon tunggu sebentar...");
@@ -338,6 +349,7 @@ async function trySyncPending(showAlert) {
         berhasil++;
       } catch (err) {
         gagal++;
+        break; // Hentikan sejenak jika ada kegagalan agar antrean tidak tumpang tindih
       }
     }
   } finally {
@@ -371,7 +383,7 @@ async function renderPendingQueue(pending) {
   card.style.display = "block";
   list.innerHTML = pending.map(p => {
     const d = p.payload;
-    return `<div class="pending-item">• ${escapeHtml(d.nomorGardu)} — ${escapeHtml(d.petugas1)} & ${escapeHtml(d.petugas2)} (disimpan ${new Date(p.createdAt).toLocaleString("id-ID")})</div>`;
+    return `<div class="pending-item">• ${escapeHtml(d.nomorGardu)} (${escapeHtml(d.namaUlp || "ULP -")}) — ${escapeHtml(d.petugas1)} & ${escapeHtml(d.petugas2)}</div>`;
   }).join("");
 }
 
@@ -387,6 +399,7 @@ async function loadTemplate() {
   const container = document.getElementById("checklistContainer");
   const CACHE_KEY = "checklist_template_cache";
   const GARDU_CACHE_KEY = "gardu_list_cache";
+  const ULP_CACHE_KEY = "ulp_mapping_cache";
 
   try {
     const res = await fetch(APPS_SCRIPT_URL + "?action=template&token=" + encodeURIComponent(API_TOKEN));
@@ -396,21 +409,29 @@ async function loadTemplate() {
 
     templateItems = data.items || [];
     const garduList = data.garduList || [];
+    ulpMappingList = data.ulpMapping || [];
 
     localStorage.setItem(CACHE_KEY, JSON.stringify(templateItems));
     localStorage.setItem(GARDU_CACHE_KEY, JSON.stringify(garduList));
+    localStorage.setItem(ULP_CACHE_KEY, JSON.stringify(ulpMappingList));
 
     renderChecklist();
     renderGarduDropdown(garduList);
+    renderUlpOptions(ulpMappingList);
 
   } catch (err) {
     const cached = localStorage.getItem(CACHE_KEY);
     const cachedGardu = localStorage.getItem(GARDU_CACHE_KEY);
+    const cachedUlp = localStorage.getItem(ULP_CACHE_KEY);
 
     if (cached) {
       templateItems = JSON.parse(cached);
       renderChecklist();
       if (cachedGardu) renderGarduDropdown(JSON.parse(cachedGardu));
+      if (cachedUlp) {
+        ulpMappingList = JSON.parse(cachedUlp);
+        renderUlpOptions(ulpMappingList);
+      }
 
       container.insertAdjacentHTML(
         "afterbegin",
@@ -425,7 +446,42 @@ async function loadTemplate() {
 function renderGarduDropdown(garduList) {
   const datalist = document.getElementById("garduDatalist");
   if (!datalist) return;
-  datalist.innerHTML = garduList.map(g => `<option value="${g}">`).join("");
+  datalist.innerHTML = garduList.map(g => `<option value="${escapeHtml(g)}">`).join("");
+}
+
+function renderUlpOptions(mapping) {
+  const ulpSelect = document.getElementById("namaUlp");
+  if (!ulpSelect) return;
+
+  const uniqueUlps = [];
+  mapping.forEach(m => {
+    if (m.ulp && !uniqueUlps.includes(m.ulp)) uniqueUlps.push(m.ulp);
+  });
+
+  ulpSelect.innerHTML = `<option value="">-- Pilih / Otomatis ULP --</option>` +
+    uniqueUlps.map(u => `<option value="${escapeHtml(u)}">${escapeHtml(u)}</option>`).join("");
+}
+
+function handleGarduInput(val) {
+  val = (val || "").trim().toUpperCase();
+  if (!val || ulpMappingList.length === 0) return;
+
+  const ulpSelect = document.getElementById("namaUlp");
+  let foundUlp = null;
+
+  for (const mapItem of ulpMappingList) {
+    for (const prefix of mapItem.prefixes) {
+      if (val.startsWith(prefix)) {
+        foundUlp = mapItem.ulp;
+        break;
+      }
+    }
+    if (foundUlp) break;
+  }
+
+  if (foundUlp && ulpSelect) {
+    ulpSelect.value = foundUlp;
+  }
 }
 
 function renderCheckItemHtml(item, i) {
@@ -437,7 +493,6 @@ function renderCheckItemHtml(item, i) {
 
   return `
     <div class="check-item" data-index="${i}">
-      <!-- Header Uraian -->
       <div style="margin-bottom: 10px;">
         ${opsiUraian.length > 0 ? `
           <label class="form-label" style="font-weight: 700;">${i + 1}. Pilih Uraian Alat:</label>
@@ -454,7 +509,6 @@ function renderCheckItemHtml(item, i) {
         ` : ''}
       </div>
 
-      <!-- Input Spesifikasi Alat -->
       <div class="check-row" style="flex-wrap: wrap;">
         ${item.perluMerek ? `
           <div class="form-group" style="flex: 1; min-width: 130px;">
@@ -504,7 +558,6 @@ function renderCheckItemHtml(item, i) {
         ` : ''}
       </div>
 
-      <!-- Pilihan Kondisi -->
       <div class="options" style="margin-top: 10px;">
         <label class="option">
           <input type="radio" class="kondisi-radio" name="kondisi${i}" value="BAIK">
@@ -520,7 +573,7 @@ function renderCheckItemHtml(item, i) {
         </label>
       </div>
 
-      <!-- Evidence Kerusakan (Hanya muncul jika kondisi RUSAK) -->
+      <!-- Evidence Box -->
       <div class="item-evidence" id="itemEvidence${i}">
         <div class="item-evidence-label">⚠️ Kondisi rusak — lampirkan foto evidence</div>
         <div id="itemEvidenceList${i}"></div>
@@ -604,7 +657,14 @@ function renderChecklist() {
       const evidenceBox = item.querySelector(".item-evidence");
       if (!evidenceBox) return;
 
-      evidenceBox.style.display = this.value === "RUSAK" ? "block" : "none";
+      const isRusak = this.value === "RUSAK";
+      evidenceBox.style.display = isRusak ? "block" : "none";
+
+      // PERBAIKAN BUG: Jika diubah dari RUSAK menjadi BAIK / N/A, bersihkan foto evidence
+      if (!isRusak) {
+        const itemIdx = parseInt(item.dataset.index, 10);
+        clearItemEvidence(itemIdx);
+      }
     });
   });
 }
@@ -690,6 +750,22 @@ function deleteItemEvidence(button, itemIndex) {
   renumberItemEvidence(itemIndex);
 }
 
+function clearItemEvidence(itemIndex) {
+  const list = document.getElementById("itemEvidenceList" + itemIndex);
+  if (!list) return;
+
+  list.querySelectorAll(".evidence-item").forEach(ev => {
+    const preview = ev.querySelector(".photo-preview");
+    if (preview && preview.src && preview.src.startsWith("blob:")) {
+      URL.revokeObjectURL(preview.src);
+    }
+  });
+
+  list.innerHTML = "";
+  itemEvidenceCounts[itemIndex] = 0;
+  updateAddEvidenceButtonLabel(itemIndex);
+}
+
 function renumberItemEvidence(itemIndex) {
   const list = document.getElementById("itemEvidenceList" + itemIndex);
   const items = list.querySelectorAll(".evidence-item");
@@ -749,11 +825,13 @@ function getGPS() {
 
 function collectFormData() {
   const nomorGardu = document.getElementById("nomorGardu").value.trim();
+  const namaUlp = document.getElementById("namaUlp").value.trim();
   const alamat = document.getElementById("alamat").value.trim();
   const petugas1 = document.getElementById("petugas1").value.trim();
   const petugas2 = document.getElementById("petugas2").value.trim();
 
   if (!nomorGardu) { alert("Nomor gardu wajib diisi."); return null; }
+  if (!namaUlp) { alert("Nama ULP wajib diisi."); return null; }
   if (!alamat) { alert("Alamat wajib diisi."); return null; }
   if (!petugas1) { alert("Nama petugas 1 wajib diisi."); return null; }
   if (!petugas2) { alert("Nama petugas 2 wajib diisi."); return null; }
@@ -794,7 +872,7 @@ function collectFormData() {
       ukuranFinal = templateItem.satuanUkuran ? `${val} ${templateItem.satuanUkuran}` : val;
     }
 
-    // Jenis (Dropdown dengan opsi custom / Input Teks)
+    // Jenis
     const jenisEl = el.querySelector(".jenis-input");
     let jenisFinal = "-";
     if (jenisEl) {
@@ -829,11 +907,10 @@ function collectFormData() {
     });
   }
 
-  // Keterangan Tambahan Umum dari kartu tersendiri
   const ketTambahanInput = document.getElementById("keteranganTambahan");
   const keteranganTambahan = ketTambahanInput ? ketTambahanInput.value.trim() : "";
 
-  return { nomorGardu, alamat, petugas1, petugas2, items, keteranganTambahan };
+  return { nomorGardu, namaUlp, alamat, petugas1, petugas2, items, keteranganTambahan };
 }
 
 function openConfirmModal() {
@@ -844,6 +921,7 @@ function openConfirmModal() {
 
   document.getElementById("confirmSummary").innerHTML = `
     <strong>Nomor Gardu:</strong> ${escapeHtml(data.nomorGardu)}<br>
+    <strong>Nama ULP:</strong> ${escapeHtml(data.namaUlp)}<br>
     <strong>Alamat:</strong> ${escapeHtml(data.alamat)}<br>
     <strong>Petugas:</strong> ${escapeHtml(data.petugas1)} & ${escapeHtml(data.petugas2)}<br>
     <strong>Jumlah item checklist:</strong> ${data.items.length}<br>
@@ -933,6 +1011,7 @@ async function submitInspection() {
     }
 
     document.getElementById("resultGardu").textContent = "Nomor Gardu: " + data.nomorGardu;
+    document.getElementById("resultUlp").textContent = "Nama ULP: " + data.namaUlp;
     document.getElementById("resultPetugas").textContent = "Petugas: " + data.petugas1 + " & " + data.petugas2;
     document.getElementById("resultTime").textContent = "Waktu: " + now.toLocaleString("id-ID");
     document.getElementById("resultLinks").innerHTML =
@@ -942,6 +1021,7 @@ async function submitInspection() {
     document.getElementById("result").style.display = "block";
     document.getElementById("result").scrollIntoView({ behavior: "smooth" });
 
+    resetForm();
     submitBtn.textContent = "Kirim Inspeksi";
     submitBtn.disabled = false;
 
@@ -954,12 +1034,17 @@ async function submitInspection() {
 
 function resetForm() {
   document.getElementById("nomorGardu").value = "";
+  document.getElementById("namaUlp").value = "";
   document.getElementById("alamat").value = "";
   document.getElementById("petugas1").value = "";
   document.getElementById("petugas2").value = "";
   const ketEl = document.getElementById("keteranganTambahan");
   if (ketEl) ketEl.value = "";
+
+  // PERBAIKAN BUG: Bersihkan seluruh foto evidence & memori BLOB
+  templateItems.forEach((_, idx) => clearItemEvidence(idx));
   itemEvidenceCounts = [];
+
   latitude = longitude = gpsAccuracy = null;
   document.getElementById("gpsResult").textContent = "Lokasi belum diambil.";
   renderChecklist();
